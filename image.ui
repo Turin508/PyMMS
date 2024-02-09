@@ -1530,7 +1530,7 @@ Please connect to camera.</string>
        <item row="5" column="1" colspan="2">
         <widget class="QComboBox" name="_trigger">
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <item>
           <property name="text">
@@ -1539,7 +1539,7 @@ Please connect to camera.</string>
          </item>
          <item>
           <property name="text">
-           <string>Laser</string>
+           <string>TTL pulse</string>
           </property>
          </item>
         </widget>
@@ -1553,6 +1553,9 @@ Please connect to camera.</string>
        </item>
        <item row="4" column="1" colspan="2">
         <widget class="QComboBox" name="_exp_type">
+         <property name="currentIndex">
+          <number>1</number>
+         </property>
          <item>
           <property name="text">
            <string>Experimental with analogue</string>
@@ -1680,7 +1683,7 @@ Please connect to camera.</string>
         <x>10</x>
         <y>520</y>
         <width>281</width>
-        <height>101</height>
+        <height>108</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_10">
@@ -1831,7 +1834,7 @@ Please connect to camera.</string>
         <x>70</x>
         <y>730</y>
         <width>160</width>
-        <height>102</height>
+        <height>108</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout">
@@ -2109,7 +2112,7 @@ Please connect to camera.</string>
         <x>490</x>
         <y>40</y>
         <width>163</width>
-        <height>89</height>
+        <height>98</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_9">
@@ -2198,7 +2201,7 @@ Please connect to camera.</string>
      <x>0</x>
      <y>0</y>
      <width>820</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
