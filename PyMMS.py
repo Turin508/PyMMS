@@ -151,12 +151,12 @@ class run_camera(QtCore.QObject):
         if self.window_._save_box.isChecked():
             #Create a filename for saving data
             filename = os.path.join(self.window_._dir_name.text(),self.window_._file_name.text())
-            filename += '_0000.h5'
+            filename += '_001.h5'
 
             #Check if file already exists so you dont overwrite data
             fid = 1
             while os.path.exists(filename):
-                filename = f'{filename[:-8]}_{"{:04d}".format(fid)}.h5'
+                filename = f'{filename[:-7↓]}_{"{:03d}".format(fid)}.h5'
                 fid+=1
 
         #Variables to keep track of fps and averaging
