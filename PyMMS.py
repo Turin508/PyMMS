@@ -24,6 +24,8 @@ from PyQt6 import uic, QtWidgets, QtCore, QtGui
 from PyMMS_Functions import pymms
 #Import the newport class function
 from Delay_Stage import newport_delay_stage
+# Import the VEIRA class function
+from VEIRA_Functions import veira_settings
 #Supress numpy divide and cast warnings
 warnings.simplefilter('ignore', RuntimeWarning)
 
@@ -156,8 +158,34 @@ class run_camera(QtCore.QObject):
             #Check if file already exists so you dont overwrite data
             fid = 1
             while os.path.exists(filename):
-                filename = f'{filename[:-7↓]}_{"{:03d}".format(fid)}.h5'
+                filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
                 fid+=1
+            
+            # File ID is incremented after finding the next available file, so process here accordingly
+            # Make signal files odd and background files even
+            if self.window_.veira.current_run_type == 'Signal':
+                if fid % 2 == 1:
+                    filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
+                    # Make sure a file hasn't already been skipped
+                    while os.path.exists(filename):
+                        fid+=2
+                        filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
+
+            elif self.window_.veira.current_run_type == 'Background':
+                if fid % 2 == 0:
+                    filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
+
+                else:
+                    # Make sure a file hasn't already been skipped
+                    # If the next file exists, set the current filename to the next file.
+                    # Then, loop through to find the next even-numbered file available
+                    if os.path.exists(f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'):
+                        filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
+                        fid -= 1
+                        while os.path.exists(filename):
+                            fid+=2
+                            filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
+
 
         #Variables to keep track of fps and averaging
         cml_number = 0
@@ -661,6 +689,7 @@ class UI_Threads():
             self.window_.camera_running_ = True
             self.window_.camera_function_ = self.window_._exp_type.currentIndex()
             self.window_._button.setText("Stop")
+            self.window_._buttonVEIRA.setText("Stop")
             self.window_._update_camera.setDisabled(True)
             self.window_._update_camera_2.setDisabled(True)
             self.window_._camera_connect_button.setDisabled(True)
@@ -680,16 +709,26 @@ class UI_Threads():
             self.udpl_worker.stop()
             self.udpl_thread.quit()
             self.udpl_thread.wait()
-            #When we want to stop a thread we need to tell the worker (index 1) to stop
+            # When we want to stop a thread we need to tell the worker (index 1) to stop
             for thread in self.window_.threads_:
                 thread[1].stop()
                 thread[0].quit()
                 thread[0].wait()
-            self.window_._update_camera.setDisabled(False)
-            self.window_._update_camera_2.setDisabled(False)
-            self.window_._camera_connect_button.setDisabled(False)
-            self.window_._dly_connect_button.setDisabled(False)
-            self.window_._button.setText("Start")
+
+            # Check whether there are any more VEIRA runs left
+            if self.window_.veira.run_array != []:
+                # If there are, wait a few seconds, then set up the next run
+                time.sleep(2)
+                self.window_.veira.run_next()
+
+            else:
+                # Otherwise, Reactivate all the buttons
+                self.window_._update_camera.setDisabled(False)
+                self.window_._update_camera_2.setDisabled(False)
+                self.window_._camera_connect_button.setDisabled(False)
+                self.window_._dly_connect_button.setDisabled(False)
+                self.window_._button.setText("Start")
+                self.window_._buttonVEIRA.setText("Start VEIRA")
 
 #########################################################################################
 # Mainwindow used for displaying UI
@@ -731,6 +770,9 @@ class MainWindow(QtWidgets.QMainWindow):
         #Class the class responsible for handling threads
         self.ui_threads = UI_Threads(self)
 
+        # Initialise the VEIRA settings
+        self.veira = veira_settings(self)
+
         '''
         Various commands for buttons found on the ui
         '''
@@ -748,7 +790,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._view.currentIndexChanged.connect(self.reset_images)
         self._rotate_c_2.clicked.connect(self.reset_images)
 
+        self._button.clicked.connect(self.veira.reset_run)
         self._button.clicked.connect(self.ui_threads.run_camera_threads)
+        self.bncConnect.clicked.connect(self.veira.connect_bnc)
+        self._buttonVEIRA.clicked.connect(lambda: self.veira.populate_run_array(self.camera_running_))
+        self.veira.run.connect(self.ui_threads.run_camera_threads)
 
         #Update the plots when they are clicked on
         self._nofs.valueChanged.connect(self.update_nofs)
@@ -777,6 +823,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui_threads.pb_thread() #Progress bar for connecting to camera
         self.ui_threads.camera_thread(0)
+
 
     def update_nofs(self):
         self.ion_counts_ = [np.nan for x in range(self._nofs.value())]
@@ -953,6 +1000,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._camera_connect.setStyleSheet("color: red")
             self._camera_connect_button.setText(f'Connect')
             self._button.setDisabled(True)
+            self._buttonVEIRA.setDisabled(True)
             self._update_camera.setDisabled(True)
             self._update_camera_2.setDisabled(True)
             self.connected_ = False
@@ -988,6 +1036,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def unlock_run_camera(self):
         self._button.setDisabled(False)
+        if self.veira.bnc_connected:
+            self._buttonVEIRA.setDisabled(False)
         self._update_camera.setDisabled(False)
         self._update_camera_2.setDisabled(False)
         self._camera_connect_button.setDisabled(False)
@@ -1001,6 +1051,7 @@ class MainWindow(QtWidgets.QMainWindow):
         '''
         self._camera_connect_button.setDisabled(True)
         self._button.setDisabled(True)
+        self._buttonVEIRA.setDisabled(True)
         self._update_camera.setDisabled(True)
         self._update_camera_2.setDisabled(True)
         self._plainTextEdit.setPlainText(f'Updating Camera output type!')
@@ -1018,6 +1069,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._camera_connect_button.setDisabled(True)
         self._button.setDisabled(True)
+        self._buttonVEIRA.setDisabled(True)
         self._update_camera.setDisabled(True)
         self._update_camera_2.setDisabled(True)
         trim_file  = self._trim_dir.text()
