@@ -156,7 +156,7 @@ class run_camera(QtCore.QObject):
             #Check if file already exists so you dont overwrite data
             fid = 1
             while os.path.exists(filename):
-                filename = f'{filename[:-7↓]}_{"{:03d}".format(fid)}.h5'
+                filename = f'{filename[:-7]}_{"{:03d}".format(fid)}.h5'
                 fid+=1
 
         #Variables to keep track of fps and averaging
