@@ -833,6 +833,10 @@ class repeat_acquisitions(QtCore.QObject):
         # Run the camera
         self.run.emit()
 
+    def single_run_button(self):
+        self.remaining_repeats = 0
+        self.run.emit()
+
 
 #########################################################################################
 # Mainwindow used for displaying UI
@@ -893,7 +897,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._view.currentIndexChanged.connect(self.reset_images)
         self._rotate_c_2.clicked.connect(self.reset_images)
 
-        self._button.clicked.connect(self.ui_threads.run_camera_threads)
+        self._button.clicked.connect(self.repeatAcquisitions.single_run_button)
         self._buttonRepeats.clicked.connect(lambda: self.repeatAcquisitions.set_up_repeats(self))
         self.repeatAcquisitions.run.connect(self.ui_threads.run_camera_threads)
 
