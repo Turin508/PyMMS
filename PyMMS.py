@@ -133,6 +133,12 @@ class run_camera(QtCore.QObject):
         with h5py.File(filename, 'a') as hf:
             try: hf.create_dataset(f'{shot_number}',data=np.vstack(frm_image),compression='gzip')
             except ValueError: print('No data to save?')
+
+        # Record the time at which each set of data is written
+        with open(f'{filename[:-3]}_write_timestamp.txt', 'a') as f:
+            # +0.5 to make int round to the nearest number
+            f.write(f'{shot_number}\t{int(time.time() + 0.5)}\n')
+
         #If there is delay stage data save it
         if len(pos_data) == 0: return
         with h5py.File(f'{filename[:-3]}_position.h5', 'a') as hf:
@@ -177,8 +183,61 @@ class run_camera(QtCore.QObject):
             delay_step = self.window_._dly_step.value() / 6671.2819
             delay_end = self.window_._delay_t0.value() + (self.window_._dly_stop.value() / 6671.2819)
             delay_end += delay_step #include the delay end in the position search
-            delay_current = delay_start
+
+            # Check the delays are within the delay stage range
+            if delay_start < -50:
+                delay_start = -50.
+            if delay_end > 50:
+                delay_start = 50.
+
+            # Reverse the order if the start delay is greater than the end delay
+            if delay_start > delay_end:
+                _ = delay_start
+                delay_start = delay_end
+                delay_end = _
+
+            read_delays_from_file = self.window_._dly_from_file.isChecked()
+
+            # Make an array of delays which will be processed
+            if read_delays_from_file:
+                # Import step positions for delay scan
+                from step_positions import step_positions
+                # This functionality allows the number of cycles to be specified per delay
+                delay_array, cycle_array = step_positions(self.window_._delay_t0.value())
+                default_cycles = self.window_._dly_img.value()
+                
+                # Set the delay start and end on the display
+                self.window_._dly_start.setValue(int((min(delay_array) - self.window_._delay_t0.value()) * 6671.2819))
+                self.window_._dly_stop.setValue(int((max(delay_array) - self.window_._delay_t0.value()) * 6671.2819))
+
+            else:
+                delay_array = [delay_start + i*delay_step for i in range(int((delay_end - delay_start) // delay_step))]
+
+            # Randomise the delay array if requested
+            if self.window_._dly_order_slider.value() == 1:
+                ordering_array = np.argsort(np.random.rand(len(delay_array)))
+                delay_array = list(np.array(delay_array)[ordering_array])
+                try:
+                    cycle_array = list(np.array(cycle_array)[ordering_array])
+                except NameError:
+                    # Cycle array is only present if read from the step position file
+                    pass
+
+            # Move to the first delay
+            delay_current = delay_array.pop(0)
+            delay_stage.set_position(delay_current)
+            self.progress.emit(f'Moved to: {round(delay_current,4)}, Remaining steps: {len(delay_array)}')
             delay_shots = 0
+
+            # If cycles are being read from step_positions, set them
+            try:
+                no_cycles_current = cycle_array.pop(0)
+                if no_cycles_current == -1:
+                    no_cycles_current = default_cycles
+
+                self.window_._dly_img.setValue(no_cycles_current)
+            except NameError:
+                pass
 
         #Continue checking the image queue until we kill the camera.
         while self.running == True:
@@ -219,19 +278,44 @@ class run_camera(QtCore.QObject):
                     delay_shots+=1
                     #If we have reached the max number of images for this position
                     if delay_shots == self.window_._dly_img.value():
-                        self.progress.emit(f'Moved to: {round(position,4)}, End at: {round(delay_end,4)}')
-                        delay_current+=delay_step
-                        delay_stage.set_position(delay_current)
-                        delay_shots = 0
-                    #If we have passed the end point stop camera
-                    if (delay_start > delay_end) and (delay_current <= delay_end) and (not stopped): 
-                        print(delay_current, delay_end)
-                        stopped = True
-                        self.limit.emit()
-                    if (delay_start < delay_end) and (delay_current >= delay_end) and (not stopped):
-                        print(delay_current, delay_end)
-                        stopped = True
-                        self.limit.emit()
+                        try:
+                            delay_current = delay_array.pop(0)
+                            delay_stage.set_position(delay_current)
+                            self.progress.emit(f'Moved to: {round(delay_current,4)}, Remaining steps: {len(delay_array)}')
+                            delay_shots = 0
+
+                            # If cycles are being read from step_positions, set them
+                            try:
+                                no_cycles_current = cycle_array.pop(0)
+                                if no_cycles_current == -1:
+                                    no_cycles_current = default_cycles
+
+                                self.window_._dly_img.setValue(no_cycles_current)
+                            except NameError:
+                                pass
+
+                        except IndexError:
+                            # Stop if there are no more delays to process
+                            print(delay_current, delay_end)
+                            stopped = True
+
+                            # Reset the number of cycles per delay step to the original value if applicable
+                            try:
+                                self.window_._dly_img.setValue(default_cycles)
+                            except NameError:
+                                pass
+
+                            self.limit.emit()
+
+                    # #If we have passed the end point stop camera
+                    # if (delay_start > delay_end) and (delay_current <= delay_end) and (not stopped): 
+                    #     print(delay_current, delay_end)
+                    #     stopped = True
+                    #     self.limit.emit()
+                    # if (delay_start < delay_end) and (delay_current >= delay_end) and (not stopped):
+                    #     print(delay_current, delay_end)
+                    #     stopped = True
+                    #     self.limit.emit()
                                         
                 img_index = self.window_._window_view.currentIndex()
 
@@ -661,6 +745,7 @@ class UI_Threads():
             self.window_.camera_running_ = True
             self.window_.camera_function_ = self.window_._exp_type.currentIndex()
             self.window_._button.setText("Stop")
+            self.window_._buttonRepeats.setText("Stop")
             self.window_._update_camera.setDisabled(True)
             self.window_._update_camera_2.setDisabled(True)
             self.window_._camera_connect_button.setDisabled(True)
@@ -685,11 +770,69 @@ class UI_Threads():
                 thread[1].stop()
                 thread[0].quit()
                 thread[0].wait()
+
+            # Check whether there are more repeats to run
+            try:
+                if self.window_.repeatAcquisitions.remaining_repeats > 0:
+                    time.sleep(0.1)
+                    self.window_.repeatAcquisitions.run_next()
+                    return
+            except AttributeError:
+                pass
+            
+            # Otherwise, reactivate the appropriate buttons
             self.window_._update_camera.setDisabled(False)
             self.window_._update_camera_2.setDisabled(False)
             self.window_._camera_connect_button.setDisabled(False)
             self.window_._dly_connect_button.setDisabled(False)
             self.window_._button.setText("Start")
+            self.window_._buttonRepeats.setText("Start")
+
+
+#########################################################################################
+# Class for saving multiple datasets
+#########################################################################################
+class repeat_acquisitions(QtCore.QObject):
+    run = QtCore.pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+
+    def set_up_repeats(self, main_variables):
+        # Stop if the camera is already running
+        if main_variables.camera_running_:
+            self.remaining_repeats = 0
+            self.run.emit()
+            return
+        
+        # Read the parameters from the file
+        self.remaining_repeats = main_variables.noDelayScanRepeats.value()
+        self.parameters = {
+            'ref_pos': (main_variables._delay_t0, main_variables._delay_t0.value()),
+            'start_delay': (main_variables._dly_start, main_variables._dly_start.value()),
+            'end_delay': (main_variables._dly_stop, main_variables._dly_stop.value()),
+            'step_size': (main_variables._dly_step, main_variables._dly_step.value()),
+            'images_step': (main_variables._dly_img, main_variables._dly_img.value()),
+            'delay_ordering': (main_variables._dly_order_slider, main_variables._dly_order_slider.value()),
+        }
+
+        self.run_next()
+
+    def run_next(self):
+        # Stop if no more runs remaining
+        if self.remaining_repeats == 0:
+            return
+        
+        # Reset all the parameters to their starting values, in case someone changed them
+        for gui_pointer, gui_value in self.parameters.values():
+            gui_pointer.setValue(gui_value)
+
+        # Decrement the number of remaining repeats
+        self.remaining_repeats -= 1
+
+        # Run the camera
+        self.run.emit()
+
 
 #########################################################################################
 # Mainwindow used for displaying UI
@@ -730,6 +873,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui_plots = UI_Plots(self)
         #Class the class responsible for handling threads
         self.ui_threads = UI_Threads(self)
+        # Class for handing repeat acquisitions
+        self.repeatAcquisitions = repeat_acquisitions()
 
         '''
         Various commands for buttons found on the ui
@@ -749,6 +894,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._rotate_c_2.clicked.connect(self.reset_images)
 
         self._button.clicked.connect(self.ui_threads.run_camera_threads)
+        self._buttonRepeats.clicked.connect(lambda: self.repeatAcquisitions.set_up_repeats(self))
+        self.repeatAcquisitions.run.connect(self.ui_threads.run_camera_threads)
 
         #Update the plots when they are clicked on
         self._nofs.valueChanged.connect(self.update_nofs)
@@ -911,9 +1058,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def dly_control(self):
         '''Connect to and disconnect from the delay stage.'''
         if self.dly_connected == False:
-            port, name, _ = self._com_ports.currentText().split(';')
-            if 'Delay Stage' in name:
-                delay_stage.connect_stage(port)
+            if 1 == 1:
+                delay_stage.connect_stage()
                 self._dly_vel.setText(delay_stage.get_velocity())
                 self._dly_pos_min.setText(delay_stage.get_minimum_position())
                 self._dly_pos_max.setText(delay_stage.get_maximum_position())
@@ -953,6 +1099,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._camera_connect.setStyleSheet("color: red")
             self._camera_connect_button.setText(f'Connect')
             self._button.setDisabled(True)
+            self._buttonRepeats.setDisabled(True)
             self._update_camera.setDisabled(True)
             self._update_camera_2.setDisabled(True)
             self.connected_ = False
@@ -988,6 +1135,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def unlock_run_camera(self):
         self._button.setDisabled(False)
+        self._buttonRepeats.setDisabled(False)
         self._update_camera.setDisabled(False)
         self._update_camera_2.setDisabled(False)
         self._camera_connect_button.setDisabled(False)
@@ -1001,6 +1149,7 @@ class MainWindow(QtWidgets.QMainWindow):
         '''
         self._camera_connect_button.setDisabled(True)
         self._button.setDisabled(True)
+        self._buttonRepeats.setDisabled(True)
         self._update_camera.setDisabled(True)
         self._update_camera_2.setDisabled(True)
         self._plainTextEdit.setPlainText(f'Updating Camera output type!')
@@ -1018,6 +1167,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._camera_connect_button.setDisabled(True)
         self._button.setDisabled(True)
+        self._buttonRepeats.setDisabled(True)
         self._update_camera.setDisabled(True)
         self._update_camera_2.setDisabled(True)
         trim_file  = self._trim_dir.text()

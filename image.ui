@@ -2099,8 +2099,11 @@ Please connect to camera.</string>
          <property name="decimals">
           <number>4</number>
          </property>
+         <property name="minimum">
+          <double>-50.000000000000000</double>
+         </property>
          <property name="maximum">
-          <double>125.000000000000000</double>
+          <double>50.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -2192,6 +2195,201 @@ Please connect to camera.</string>
        <string>Refresh</string>
       </property>
      </widget>
+     <widget class="QSlider" name="_dly_order_slider">
+      <property name="geometry">
+       <rect>
+        <x>300</x>
+        <y>300</y>
+        <width>111</width>
+        <height>71</height>
+       </rect>
+      </property>
+      <property name="maximum">
+       <number>1</number>
+      </property>
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_37">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>280</y>
+        <width>71</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Ordered </string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_38">
+      <property name="geometry">
+       <rect>
+        <x>320</x>
+        <y>260</y>
+        <width>81</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Delay ordering</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_39">
+      <property name="geometry">
+       <rect>
+        <x>370</x>
+        <y>280</y>
+        <width>71</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Unordered</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QFrame" name="frame">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>250</y>
+        <width>171</width>
+        <height>131</height>
+       </rect>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Box</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+     </widget>
+     <widget class="QFrame" name="frame_2">
+      <property name="geometry">
+       <rect>
+        <x>460</x>
+        <y>250</y>
+        <width>141</width>
+        <height>131</height>
+       </rect>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Box</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <widget class="QLabel" name="label_40">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>121</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Run multiple repeats</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="_buttonRepeats">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>30</x>
+         <y>90</y>
+         <width>81</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Start</string>
+       </property>
+      </widget>
+      <widget class="QWidget" name="">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>50</y>
+         <width>121</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_11">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_41">
+          <property name="maximumSize">
+           <size>
+            <width>44</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Repeats:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QSpinBox" name="noDelayScanRepeats">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>10000</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+     <widget class="QCheckBox" name="_dly_from_file">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>220</y>
+        <width>341</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Read delays and number of cycles from step_positions.py</string>
+      </property>
+     </widget>
+     <zorder>frame</zorder>
+     <zorder>_dly_connect_button</zorder>
+     <zorder>_dly_vel_but</zorder>
+     <zorder>_dly_send_to</zorder>
+     <zorder>gridLayoutWidget_7</zorder>
+     <zorder>gridLayoutWidget_8</zorder>
+     <zorder>gridLayoutWidget_9</zorder>
+     <zorder>_com_ports</zorder>
+     <zorder>_dly_refresh</zorder>
+     <zorder>_dly_order_slider</zorder>
+     <zorder>label_37</zorder>
+     <zorder>label_38</zorder>
+     <zorder>label_39</zorder>
+     <zorder>frame_2</zorder>
+     <zorder>_dly_from_file</zorder>
     </widget>
    </widget>
   </widget>
